@@ -10,6 +10,7 @@
           @keyup.enter="handleUserInput"
         />
         <p v-if="message">{{ message }}</p>
+        <p v-if="countdown > 0">Time remaining: {{ countdown }} seconds.</p>
       </div>
       <div v-else>
         <p>{{ message }}</p>
@@ -17,7 +18,22 @@
       </div>
     </div>
     <div v-else>
-      <button @click="startGame">Start Game</button>
+      <div>
+        <label for="guessTimeInput">Enter guess time (in seconds):</label>
+        <input type="number" id="guessTimeInput" v-model="guessTime" min="1" />
+      </div>
+      <div>
+        <label for="roundLengthInput"
+          >Enter round length (number of guesses):</label
+        >
+        <input
+          type="number"
+          id="roundLengthInput"
+          v-model="roundLength"
+          min="1"
+        />
+      </div>
+      <button @click="startGameWithSettings">Start Game</button>
     </div>
   </div>
 </template>
@@ -34,12 +50,19 @@ export default {
       imageUrl: '',
       correctAnswer: '',
       userGuess: '',
-      countdown: 10,
-      message: ''
+      guessTime: 10, // Default guess time in seconds
+      roundLength: 10,
+      countdown: 0,
+      message: '',
+      currentRoundGuesses: 0
     };
   },
   methods: {
     startGame() {
+      this.gameStarted = true;
+      this.startNewGame();
+    },
+    startGameWithSettings() {
       this.gameStarted = true;
       this.startNewGame();
     },
@@ -48,6 +71,32 @@ export default {
       this.userGuess = '';
       this.message = '';
       this.fetchRandomAnimeCharacter();
+      this.countdown = this.guessTime; // Initialize countdown with user's chosen guess time
+
+      clearInterval(this.countdownInterval);
+
+      // Start a new countdown interval
+      this.countdownInterval = setInterval(() => {
+        this.countdown--;
+        if (this.countdown === 0) {
+          clearInterval(this.countdownInterval);
+          this.submitGuess();
+          this.currentRoundGuesses++; // Increment the current round's guess counter
+
+          // Check if the user has reached the maximum number of guesses in the current round
+          if (this.currentRoundGuesses >= this.roundLengthAsInt) {
+            // Reset the game state to allow the user to choose a new round length
+            this.gameStarted = false;
+            this.imageUrl = '';
+            this.correctAnswer = '';
+            this.message = '';
+            this.currentRoundGuesses = 0; // Reset the current round's guess counter
+          } else {
+            // Start a new round if the maximum number of guesses is not reached
+            this.startNewGame();
+          }
+        }
+      }, 1000);
     },
     fetchRandomAnimeCharacter() {
       axios
@@ -70,6 +119,17 @@ export default {
       if (similarity >= similarityThreshold) {
         this.message = 'Congratulations! You guessed right!';
         this.gameOver = true;
+        this.currentRoundGuesses++; // Increment the current round's guess counter
+
+        // Check if the user has guessed the word correctly in the current round
+        if (this.currentRoundGuesses >= this.roundLengthAsInt) {
+          // Reset the game state to allow the user to choose a new round length
+          this.gameStarted = false;
+          this.imageUrl = '';
+          this.correctAnswer = '';
+          this.message = '';
+          this.currentRoundGuesses = 0;
+        }
       } else {
         this.message = 'Incorrect guess. Try again or enter a new guess.';
       }
@@ -106,15 +166,6 @@ export default {
 
       return similarity;
     },
-    startCountdown() {
-      const interval = setInterval(() => {
-        this.countdown--;
-        if (this.countdown === 0) {
-          clearInterval(interval);
-          this.submitGuess();
-        }
-      }, 1000);
-    },
     handleUserInput() {
       // If the game is already over, start the next round
       if (this.gameOver) {
@@ -143,6 +194,16 @@ export default {
       if (this.gameOver) {
         this.startGame();
       }
+    },
+    stopGame() {
+      // Reset the game state to allow the user to choose a new round length
+      this.gameStarted = false;
+      this.gameOver = false;
+      this.imageUrl = '';
+      this.correctAnswer = '';
+      this.userGuess = '';
+      this.message = '';
+      this.currentRoundGuesses = 0; // Reset the current round's guess counter
     }
   },
   mounted() {
@@ -155,8 +216,14 @@ export default {
   },
   updated() {
     let input = document.getElementById('userGuess');
-    if (input) {
+    if (input && !this.gameOver) {
       input.focus();
+    }
+  },
+  computed: {
+    // Convert the roundLength to an integer using a computed property
+    roundLengthAsInt() {
+      return parseInt(this.roundLength);
     }
   }
 };
