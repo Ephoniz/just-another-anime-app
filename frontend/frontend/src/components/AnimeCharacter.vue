@@ -33,7 +33,7 @@
           min="1"
         />
       </div>
-      <button @click="startGameWithSettings">Start Game</button>
+      <button @click="startGame">Start Game</button>
     </div>
   </div>
 </template>
@@ -62,56 +62,46 @@ export default {
       this.gameStarted = true;
       this.startNewGame();
     },
-    startGameWithSettings() {
-      this.gameStarted = true;
-      this.startNewGame();
-    },
-    startNewGame() {
+    async startNewGame() {
       this.gameOver = false;
       this.userGuess = '';
       this.message = '';
-      this.fetchRandomAnimeCharacter();
-      this.countdown = this.guessTime; // Initialize countdown with user's chosen guess time
+      await this.fetchRandomAnimeCharacter();
+      this.countdown = this.guessTime;
 
       clearInterval(this.countdownInterval);
 
-      // Start a new countdown interval
+      const end = Date.now() + this.guessTime * 1000;
+
       this.countdownInterval = setInterval(() => {
-        this.countdown--;
-        if (this.countdown === 0) {
+        const now = Date.now();
+        if (now >= end) {
           clearInterval(this.countdownInterval);
           this.submitGuess();
-          this.currentRoundGuesses++; // Increment the current round's guess counter
-
-          // Check if the user has reached the maximum number of guesses in the current round
-          if (this.currentRoundGuesses >= this.roundLengthAsInt) {
-            // Reset the game state to allow the user to choose a new round length
-            this.gameStarted = false;
-            this.imageUrl = '';
-            this.correctAnswer = '';
-            this.message = '';
-            this.currentRoundGuesses = 0; // Reset the current round's guess counter
-          } else {
-            // Start a new round if the maximum number of guesses is not reached
+          this.currentRoundGuesses++;
+          if (this.currentRoundGuesses >= this.roundLength) {
+            this.resetGame();
+          } else if (!this.gameOver) {
             this.startNewGame();
           }
+        } else {
+          this.countdown = Math.ceil((end - now) / 1000);
         }
-      }, 1000);
+      }, 100);
     },
-    fetchRandomAnimeCharacter() {
-      axios
-        .get('http://127.0.0.1:5000/get_random_anime_character') // Assuming your Flask API endpoint is '/get_random_anime_character'
-        .then((response) => {
-          this.imageUrl = response.data.image_url;
-          this.correctAnswer = response.data.correct_answer;
-        })
-        .catch((error) => {
-          console.error('Error fetching random anime character:', error);
-        });
+    async fetchRandomAnimeCharacter() {
+      try {
+        const response = await axios.get(
+          'http://127.0.0.1:5000/get_random_anime_character'
+        );
+        this.imageUrl = response.data.image_url;
+        this.correctAnswer = response.data.correct_answer;
+      } catch (error) {
+        console.error('Error fetching random anime character:', error);
+      }
     },
     submitGuess() {
-      const similarityThreshold = 0.4; // Adjust the threshold as needed (0.0 to 1.0)
-
+      const similarityThreshold = 0.4;
       const similarity = this.calculateSimilarity(
         this.userGuess,
         this.correctAnswer
@@ -119,16 +109,12 @@ export default {
       if (similarity >= similarityThreshold) {
         this.message = 'Congratulations! You guessed right!';
         this.gameOver = true;
-        this.currentRoundGuesses++; // Increment the current round's guess counter
-
-        // Check if the user has guessed the word correctly in the current round
-        if (this.currentRoundGuesses >= this.roundLengthAsInt) {
-          // Reset the game state to allow the user to choose a new round length
-          this.gameStarted = false;
-          this.imageUrl = '';
-          this.correctAnswer = '';
-          this.message = '';
-          this.currentRoundGuesses = 0;
+        clearInterval(this.countdownInterval); // Stop the timer
+        this.currentRoundGuesses++;
+        if (this.currentRoundGuesses >= this.roundLength) {
+          this.resetGame();
+        } else {
+          this.startNewGame(); // Start a new game immediately
         }
       } else {
         this.message = 'Incorrect guess. Try again or enter a new guess.';
@@ -167,50 +153,34 @@ export default {
       return similarity;
     },
     handleUserInput() {
-      // If the game is already over, start the next round
       if (this.gameOver) {
         this.startNewGame();
         return;
       }
-
-      // Clear the previous message
       this.message = '';
-
-      // If the user input is empty, do nothing
       if (this.userGuess.trim() === '') {
         return;
       }
-
-      // Submit the user's guess
       this.submitGuess();
-
-      // If the game is not over, start the countdown for the next round
-      if (!this.gameOver) {
-        this.startCountdown();
-      }
     },
     toggleModalWithSpace() {
-      // Check if the game is not started and the "Play Again" button is visible
       if (this.gameOver) {
         this.startGame();
       }
     },
-    stopGame() {
-      // Reset the game state to allow the user to choose a new round length
+    resetGame() {
       this.gameStarted = false;
-      this.gameOver = false;
       this.imageUrl = '';
       this.correctAnswer = '';
-      this.userGuess = '';
       this.message = '';
-      this.currentRoundGuesses = 0; // Reset the current round's guess counter
+      this.currentRoundGuesses = 0;
     }
   },
   mounted() {
     let self = this;
     window.addEventListener('keyup', function (e) {
       if (e.key === ' ') {
-        self.toggleModalWithSpace(); // declared in your component methods
+        self.toggleModalWithSpace();
       }
     });
   },
@@ -218,12 +188,6 @@ export default {
     let input = document.getElementById('userGuess');
     if (input && !this.gameOver) {
       input.focus();
-    }
-  },
-  computed: {
-    // Convert the roundLength to an integer using a computed property
-    roundLengthAsInt() {
-      return parseInt(this.roundLength);
     }
   }
 };
