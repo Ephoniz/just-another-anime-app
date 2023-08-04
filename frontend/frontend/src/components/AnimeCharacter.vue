@@ -1,6 +1,7 @@
 <template>
   <div class="main_body">
-    <div v-if="gameStarted">
+    <!-- Show the game only if it has started and the next round countdown is not active -->
+    <div v-if="gameStarted && !showNextRoundCountdown">
       <img :src="imageUrl" alt="Anime Character" />
       <div v-if="!gameOver">
         <p>Guess the anime character:</p>
@@ -14,10 +15,14 @@
       </div>
       <div v-else>
         <p>{{ message }}</p>
-        <button ref="playAgainButton" @click="startNewGame">Play Again</button>
       </div>
     </div>
-    <div v-else>
+    <!-- Show the next round countdown only if it's active -->
+    <div v-if="showNextRoundCountdown">
+      <p>Next round starts in: {{ nextRoundCountdown }} seconds.</p>
+    </div>
+    <!-- Show the game setup only if the game hasn't started and the next round countdown is not active -->
+    <div v-if="!gameStarted && !showNextRoundCountdown">
       <div>
         <label for="guessTimeInput">Enter guess time (in seconds):</label>
         <input type="number" id="guessTimeInput" v-model="guessTime" min="1" />
@@ -54,48 +59,93 @@ export default {
       roundLength: 10,
       countdown: 0,
       message: '',
-      currentRoundGuesses: 0
+      currentRoundGuesses: 0,
+      nextRoundCountdown: 0,
+      showNextRoundCountdown: false
     };
   },
   methods: {
     startGame() {
       this.gameStarted = true;
-      this.startNewGame();
+      this.showNextRoundCountdown = true; // Show the countdown
+      this.nextRoundCountdown = 3; // Initialize the countdown
+
+      const nextRoundInterval = setInterval(() => {
+        this.nextRoundCountdown--;
+        if (this.nextRoundCountdown === 0) {
+          clearInterval(nextRoundInterval);
+          this.showNextRoundCountdown = false; // Hide the countdown
+          this.startGameRound();
+        }
+      }, 1000);
     },
     async startNewGame() {
-      this.gameOver = false;
-      this.userGuess = '';
-      this.message = '';
-      await this.fetchRandomAnimeCharacter();
-      this.countdown = this.guessTime;
+      this.showNextRoundCountdown = true; // Show the countdown
+      this.nextRoundCountdown = 3; // Initialize the countdown
 
-      clearInterval(this.countdownInterval);
+      // Fetch the character during the countdown
+      const characterData = await this.fetchRandomAnimeCharacter();
 
-      const end = Date.now() + this.guessTime * 1000;
+      const nextRoundInterval = setInterval(() => {
+        this.nextRoundCountdown--;
+        if (this.nextRoundCountdown === 0) {
+          clearInterval(nextRoundInterval);
+          this.showNextRoundCountdown = false; // Hide the countdown
 
-      this.countdownInterval = setInterval(() => {
-        const now = Date.now();
-        if (now >= end) {
-          clearInterval(this.countdownInterval);
-          this.submitGuess();
-          this.currentRoundGuesses++;
-          if (this.currentRoundGuesses >= this.roundLength) {
-            this.resetGame();
-          } else if (!this.gameOver) {
-            this.startNewGame();
-          }
-        } else {
-          this.countdown = Math.ceil((end - now) / 1000);
+          // Apply the fetched character data
+          this.applyCharacterData(characterData);
+
+          this.startGameRound();
         }
-      }, 100);
+      }, 1000);
+    },
+    applyCharacterData(characterData) {
+      this.imageUrl = characterData.imageUrl;
+      this.correctAnswer = characterData.correctAnswer;
+    },
+    startGameRound() {
+      this.$nextTick(async () => {
+        this.gameOver = false;
+        this.userGuess = '';
+        this.message = '';
+
+        this.countdown = this.guessTime; // Start the countdown after the image is loaded
+
+        clearInterval(this.countdownInterval);
+
+        const end = Date.now() + this.guessTime * 1000;
+
+        if (this.currentRoundGuesses === 0) {
+          const characterData = await this.fetchRandomAnimeCharacter();
+          this.applyCharacterData(characterData);
+        }
+
+        this.countdownInterval = setInterval(() => {
+          const now = Date.now();
+          if (now >= end) {
+            clearInterval(this.countdownInterval);
+            this.submitGuess();
+            this.currentRoundGuesses++;
+            if (this.currentRoundGuesses >= this.roundLength) {
+              this.resetGame();
+            } else if (!this.gameOver) {
+              this.startNewGame();
+            }
+          } else {
+            this.countdown = Math.ceil((end - now) / 1000);
+          }
+        }, 100);
+      });
     },
     async fetchRandomAnimeCharacter() {
       try {
         const response = await axios.get(
           'http://127.0.0.1:5000/get_random_anime_character'
         );
-        this.imageUrl = response.data.image_url;
-        this.correctAnswer = response.data.correct_answer;
+        return {
+          imageUrl: response.data.image_url,
+          correctAnswer: response.data.correct_answer
+        };
       } catch (error) {
         console.error('Error fetching random anime character:', error);
       }
