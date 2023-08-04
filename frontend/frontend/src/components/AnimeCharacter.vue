@@ -23,6 +23,9 @@
     </div>
     <!-- Show the game setup only if the game hasn't started and the next round countdown is not active -->
     <div v-if="!gameStarted && !showNextRoundCountdown">
+      <div v-if="message">
+        <p>{{ message }}</p>
+      </div>
       <div>
         <label for="guessTimeInput">Enter guess time (in seconds):</label>
         <input type="number" id="guessTimeInput" v-model="guessTime" min="1" />
@@ -61,7 +64,8 @@ export default {
       message: '',
       currentRoundGuesses: 0,
       nextRoundCountdown: 0,
-      showNextRoundCountdown: false
+      showNextRoundCountdown: false,
+      score: 0
     };
   },
   methods: {
@@ -158,6 +162,7 @@ export default {
       );
       if (similarity >= similarityThreshold) {
         this.message = 'Congratulations! You guessed right!';
+        this.score += 10;
         this.gameOver = true;
         clearInterval(this.countdownInterval); // Stop the timer
         this.currentRoundGuesses++;
@@ -212,6 +217,7 @@ export default {
         return;
       }
       this.submitGuess();
+      this.userGuess = '';
     },
     toggleModalWithSpace() {
       if (this.gameOver) {
@@ -222,7 +228,8 @@ export default {
       this.gameStarted = false;
       this.imageUrl = '';
       this.correctAnswer = '';
-      this.message = '';
+      this.message = `Game over. Your final score is ${this.score}`; // Show the final score when the game ends
+      this.score = 0;
       this.currentRoundGuesses = 0;
     }
   },
