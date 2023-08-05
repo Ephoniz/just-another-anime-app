@@ -1,8 +1,8 @@
 <template>
   <div class="main_body">
     <!-- Show the game only if it has started and the next round countdown is not active -->
-    <div v-if="gameStarted && !showNextRoundCountdown">
-      <img :src="imageUrl" alt="Anime Character" />
+    <div v-if="gameStarted && !showNextRoundCountdown" id="guess">
+      <img :src="imageUrl" alt="Anime Character" class="guess_image" />
       <div v-if="!gameOver">
         <p>Guess the anime character:</p>
         <input
@@ -11,7 +11,12 @@
           @keyup.enter="handleUserInput"
         />
         <p v-if="message">{{ message }}</p>
-        <p v-if="countdown > 0">Time remaining: {{ countdown }} seconds.</p>
+        <progress
+          id="guessTimeProgress"
+          :value="guessTime * 100 - countdown"
+          :max="guessTime * 100"
+          class="guess_anime"
+        ></progress>
       </div>
       <div v-else>
         <p>{{ message }}</p>
@@ -113,20 +118,18 @@ export default {
         this.userGuess = '';
         this.message = '';
 
-        this.countdown = this.guessTime; // Start the countdown after the image is loaded
-
-        clearInterval(this.countdownInterval);
-
-        const end = Date.now() + this.guessTime * 1000;
+        clearInterval(this.countdownInterval); // Clear previous interval if any
 
         if (this.currentRoundGuesses === 0) {
           const characterData = await this.fetchRandomAnimeCharacter();
           this.applyCharacterData(characterData);
         }
 
+        this.countdown = this.guessTime * 100; // Initialize countdown value in tenths of seconds
+
         this.countdownInterval = setInterval(() => {
-          const now = Date.now();
-          if (now >= end) {
+          this.countdown -= 1; // Decrement countdown value by 1 every 0.1 seconds
+          if (this.countdown <= 0) {
             clearInterval(this.countdownInterval);
             this.submitGuess();
             this.currentRoundGuesses++;
@@ -135,10 +138,8 @@ export default {
             } else if (!this.gameOver) {
               this.startNewGame();
             }
-          } else {
-            this.countdown = Math.ceil((end - now) / 1000);
           }
-        }, 100);
+        }, 10); // Update interval set to 100 milliseconds
       });
     },
     async fetchRandomAnimeCharacter() {
@@ -254,5 +255,13 @@ export default {
 .main_body {
   width: 100%;
   height: 100%;
+}
+#guessTimeProgress {
+  width: 30%;
+  height: 30px;
+}
+.guess_image {
+  width: 500px;
+  height: 500px;
 }
 </style>
