@@ -3,7 +3,7 @@
     <!-- Show the game only if it has started and the next round countdown is not active -->
     <div v-if="gameStarted && !showNextRoundCountdown" id="guess">
       <img :src="imageUrl" alt="Anime Character" class="guess_image" />
-      <div v-if="!gameOver">
+      <div class="user_guess" v-if="!gameOver">
         <p>Guess the anime character:</p>
         <input
           id="userGuess"
@@ -257,11 +257,51 @@ export default {
   height: 100%;
 }
 #guessTimeProgress {
-  width: 30%;
-  height: 30px;
+  -webkit-appearance: none;
+  appearance: none;
+  margin-top: 2rem;
+  width: 100%;
+  height: 40px;
+}
+#guessTimeProgress::-webkit-progress-bar {
+  background-color: white;
+  border: solid;
+  border-radius: 50px;
+  border-color: #0b4f6c;
+  border-width: 5px;
+}
+#guessTimeProgress::-webkit-progress-value {
+  background: #01baef;
+  border-radius: 50px;
 }
 .guess_image {
   width: 500px;
   height: 500px;
+  margin: auto;
+}
+#guess {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 50%;
+  margin: auto;
+  margin-top: 10%;
+}
+.user_guess {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+#userGuess {
+  padding: 5px 10px 5px 10px;
+  width: 50%;
+  margin: auto;
+  border: solid;
+  border-width: 4px;
+  border-radius: 50px;
+  border-color: #0b4f6c;
+}
+#userGuess:focus {
+  outline: none;
 }
 </style>
